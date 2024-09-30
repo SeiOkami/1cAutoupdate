@@ -11,16 +11,15 @@
     "itsUsername": "",
     "itsPassword": "",
     "platform": {
-        "startVersion": "8.3.25.1394",
-        "lastDownloaded": ""
+        "download": false,
+        "startVersion": "8.3.25.1394"
     },
     "configurations": [
         {
-            "humanName": "Бухгалтерия предприятия 3.0",
-            "programName": "Accounting",
+            "humanName": "Бухгалтерия предприятия КОРП 3.0",
+            "programName": "AccountingCorp",
             "platformVersion": "8.3.24.1624",
-            "startVersion": "3.0.160.22",
-            "lastDownloaded": ""
+            "startVersion": "3.0.155.23"
         }
     ]
 }

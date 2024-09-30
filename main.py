@@ -24,9 +24,6 @@ def main(argv):
     # Поиск и скачивание новой версии платформы 1С
     worker.update_platform(connector, settings_dict)
 
-    # Поиск и скачивание новых версий конфигураций 1С
-    worker.update_configurations(connector, settings_dict)
-
     log.info('Завершение проверки обновлений.')
     log.close()
 

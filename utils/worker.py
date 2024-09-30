@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from os.path import join as join_path
 from utils import log
 
@@ -14,15 +15,6 @@ def init_settings():
         # загружаем из файла данные в словарь settings_dict
         settings_dict = json.load(file_handle)
     return settings_dict
-
-
-def save_settings(settings_dict):
-    """Запись настроек обновления в конфигурационный файл settings.json.
-    @param settings_dict: настройки обновления в виде словаря.
-    """
-    with open('settings.json', 'w', encoding='utf-8') as file_handle:
-        # преобразовываем словарь в unicode-строку и записываем в файл
-        file_handle.write(json.dumps(settings_dict, ensure_ascii=False))
 
 
 def unzip_unicode(zip_path, directory=None, remove=True):
@@ -59,13 +51,20 @@ def update_platform(connector, settings: dict):
     @param connector: коннектор к сервису 1С.
     @param settings: настройки обновления в виде словаря.
     """
-    log.info(' > Начало обновления платформы 1С.')
+
     platform_settings = settings["platform"].copy()
 
+    if platform_settings["download"] is False:
+        log.info(' > Обновление платформы 1С отключено.')
+        return;
+
+    log.info(' > Начало обновления платформы 1С.')
+    
     # Вычисление начальной версии, с которой начинать проверку
     check_version = platform_settings["startVersion"]
-    if not platform_settings["lastDownloaded"] == "":
-        check_version = platform_settings["lastDownloaded"]
+    check_version_from_dir = find_latest_version_directory(platform_settings["templatePath"]);
+    if check_version_from_dir is not None:
+        check_version = check_version_from_dir
 
     # Получение информации об обновлении платформы с сайте 1С
     upd_conf = connector.check_platform_update(check_version)
@@ -104,10 +103,6 @@ def update_platform(connector, settings: dict):
         unzip_unicode(full_path)
         log.info(' -- Распаковка архива... Завершено!')
 
-    platform_settings["lastDownloaded"] = upd_conf["platformVersion"]
-    settings["platform"] = platform_settings
-    save_settings(settings)
-
     log.info(' < Обновление платформы 1С завершено.')
 
 
@@ -121,8 +116,11 @@ def update_configurations(connector, settings: dict):
 
         # Вычисление начальной версии, с которой начинать проверку
         check_version = configuration["startVersion"]
-        if not configuration["lastDownloaded"] == "":
-            check_version = configuration["lastDownloaded"]
+
+        dir_config_path = join_path(settings["templatePath"], configuration["programName"])
+        check_version_from_dir = find_latest_version_directory(dir_config_path);
+        if check_version_from_dir is not None:
+            check_version = check_version_from_dir
 
         upd_conf = connector.check_conf_update(configuration["programName"], check_version, configuration["platformVersion"])
         if upd_conf is None:
@@ -153,7 +151,9 @@ def update_configurations(connector, settings: dict):
             log.info(' ---- Скачивание файла обновления... Завершено!')
 
             log.info(' ---- Сохранение архива на диск...')
-            directory_path = join_path(settings["templatePath"], download_conf["templatePath"])
+            directory_path = join_path(settings["templatePath"], configuration["programName"], 
+                                       extract_version_from_path(download_conf["templatePath"]))
+
             os.makedirs(directory_path, exist_ok=True)
             full_path = join_path(directory_path, "1cv8.zip")
             log.info(' ---- Полный путь для сохранения: {}'.format(full_path))
@@ -170,5 +170,43 @@ def update_configurations(connector, settings: dict):
 
         log.info(' -- < Скачивание цепочки обновлений... Завершено!')
         log.info(' < Обновление конфигурации завершено.')
-        configuration["lastDownloaded"] = upd_conf["configurationVersion"]
-        save_settings(settings)
+
+def find_latest_version_directory(directory):
+    # Получаем список всех подкаталогов
+    subdirectories = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+    
+    # Фильтруем подкаталоги, которые соответствуют формату версии
+    version_dirs = []
+    for subdir in subdirectories:
+        try:
+            # Проверяем, что подкаталог соответствует формату версии
+            version_parts = list(map(int, subdir.split('.')))
+            if len(version_parts) == 4:
+                version_dirs.append((version_parts, subdir))
+        except ValueError:
+            # Если не удалось преобразовать в число, игнорируем этот подкаталог
+            continue
+    
+    # Если нет подходящих подкаталогов, возвращаем None
+    if not version_dirs:
+        return None
+    
+    # Находим подкаталог с максимальной версией
+    latest_version_dir = max(version_dirs, key=lambda x: x[0])
+    
+    return latest_version_dir[1]
+
+
+def extract_version_from_path(path):
+    # Разделяем путь на части
+    parts = path.split('\\')
+    
+    # Ищем последнюю часть, которая соответствует формату версии
+    for part in reversed(parts):
+        if re.match(r'^\d+_\d+_\d+_\d+$', part):
+            # Заменяем символы "_" на "."
+            version = part.replace('_', '.')
+            return version
+    
+    # Если версия не найдена, возвращаем None
+    return None
