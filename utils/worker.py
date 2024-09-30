@@ -40,7 +40,7 @@ def unzip_unicode(zip_path, directory=None, remove=True):
 
     upd_zip = zipfile.ZipFile(zip_path)
     for name in upd_zip.namelist():
-        unicode_name = name.encode('cp437').decode('cp866').replace('/', '\\')
+        unicode_name = name.encode('utf-8').decode('utf-8').replace('/', '\\')
         dirs = os.path.dirname(join_path(unzip_dir, unicode_name))
         if dirs and not os.path.exists(dirs):
             os.makedirs(dirs)
@@ -124,7 +124,7 @@ def update_configurations(connector, settings: dict):
         if not configuration["lastDownloaded"] == "":
             check_version = configuration["lastDownloaded"]
 
-        upd_conf = connector.check_conf_update(configuration["programName"], check_version)
+        upd_conf = connector.check_conf_update(configuration["programName"], check_version, configuration["platformVersion"])
         if upd_conf is None:
             log.info(' --  Обновление для текущей версии конфигурации не найдено.')
             log.info(' < Обновление конфигурации завершено.')

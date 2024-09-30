@@ -57,7 +57,7 @@ class ApiConnector:
         return result
 
 
-    def check_conf_update(self, conf_name, conf_version):
+    def check_conf_update(self, conf_name, conf_version, platformVersion):
         """Получение информации о доступных обновлениях конфигурации 1С.
         @param conf_name: название конфигурации.
         @param conf_version: проверяемая версия конфигурации.
@@ -76,12 +76,15 @@ class ApiConnector:
                  }
         """
         request_url = "{0}/update/info".format(self.API_URL)
-        request_body = self.BODY_TEMPLATE.format(conf_name, conf_version, '', 'NewProgramOrRedaction')
+        request_body = self.BODY_TEMPLATE.format(conf_name, conf_version, platformVersion, 'NewProgramOrRedaction')
 
         result = None
         try:
             http_response = requests.post(request_url, data=request_body.encode("utf-8"), headers={'Content-Type': 'application/json'}, proxies=self.PROXIES, verify=False)
             resp_dict = json.loads(http_response.text)
+            if "errors" in resp_dict:
+                for error in resp_dict["errors"]:
+                    log.error(f'Ошибка в ответе сервера: {error}')
             result = resp_dict["configurationUpdateResponse"]
         except Exception as ex:
             log.error('Ошибка при проверке обновлений конфигурации 1С.', str(ex))
